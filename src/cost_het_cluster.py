@@ -21,13 +21,14 @@ sys.path.append(workdir_path)
 sys.path.append(example_path)
 
 class AMP(nn.Module):
-    def __init__(self, model_config, exp_name):
+    def __init__(self, model_config, exp_name, comm_type):
         
         super().__init__()
         self.model_config = model_config
         self.exp_name = "init_" + exp_name 
         self.model_type = model_config["type"]
-        assert self.model_type == "gpt2" 
+        assert self.model_type == "gpt2XL"
+        self.comm_type=comm_type 
         self.init_param()
         
     def init_param(self):
@@ -45,26 +46,27 @@ class AMP(nn.Module):
         #if self.estimate:
         for mp_size in [1,2,4]:
             # known_cost directory stores the real forward time with correponding model parallel degree.
-            known_record = f"known_cost/{self.model_type}_P3_{mp_size}"
+            known_record = f"known_cost/{self.model_type}_A10_{mp_size}" 
             cur_profile_cost1 = 3 * np.load(f"{known_record}.npy")
-            known_record = f"known_cost/{self.model_type}_G4_{mp_size}"
+            known_record = f"known_cost/{self.model_type}_A100_{mp_size}"
             cur_profile_cost2 = 3 * np.load(f"{known_record}.npy")
 
             # average between different speed of GPUs
-            cur_profile_cost = cur_profile_cost1 * 0.75 + cur_profile_cost2 * 0.25
+            cur_profile_cost = cur_profile_cost1 * 7/8 + cur_profile_cost2 * 1/8
             self.profile_cost[str(mp_size)] = cur_profile_cost
             #print(f"using profile cost with mp_size {mp_size}: {cur_profile_cost}")
 
         
     def forward(self, args):
         model_type = self.model_type
+        comm_type = self.comm_type
         config, bs, micro_bs, cluster_info, model_config, oth = args
         amp_config = {"profile_cost" : self.profile_cost}
-        rank_map, partition, amp_pred = predict(config, bs, micro_bs, cluster_info, model_config, amp_config, oth)
-        return rank_map, partition, amp_pred
+        pipeline_cost, dp_side_cost, cost, partition = predict(config, bs, micro_bs, cluster_info, model_config, amp_config, oth, comm_type)
+        return pipeline_cost, dp_side_cost, cost, partition
         
 # pipeline communication cost, return shape: (L-1, pp-1)
-def get_cost_c(cluster_info, model_config, parallel_config, amp_config, dp_index=0):
+def get_cost_c(cluster_info, model_config, parallel_config, amp_config, dp_index=0, comm_type="ib"):
     h = model_config["hidden_size"]
     s = model_config["sequence_length"]
     n = model_config["num_layers"]
@@ -76,11 +78,16 @@ def get_cost_c(cluster_info, model_config, parallel_config, amp_config, dp_index
     dp = parallel_config["dp"]
     pp = parallel_config["pp"]
     
-    _layer = ["embed2h", "noop"]
+    comm_type = comm_type
+    precision = torch.ones(1)*16
+    
+    # _layer = ["embed2h", "noop"]
+    _layer = ["embed2h"]
     for i in range(int(n.item())):
         _layer.append("transformer_layer")
   
-    _layer.extend(["noop","noop", "embed2v", "noop"])
+    # _layer.extend(["noop","noop", "embed2v", "noop"])
+    _layer.extend(["embed2v"])
     _num_layer = len(_layer)
       
     # build layer activation lookup table. Noop exatly has the same activation as the previous op.
@@ -95,12 +102,13 @@ def get_cost_c(cluster_info, model_config, parallel_config, amp_config, dp_index
         elif layer_type == "embed2v":
             last_volume = bs * s * v / mp
             layer_volume.append(last_volume)
-        elif layer_type == "noop":
-            layer_volume.append(last_volume)
+        # elif layer_type == "noop":
+        #     layer_volume.append(last_volume)
         else:
             raise RuntimeError("Unknown layer type.")
             
     # Build communication cost between pipeline stages by looking up the cluster information
+    gpu_m_lst=[]
     cost_c = torch.zeros((int(dp.item()), _num_layer-1, int(pp.item()-1)))
     for i in range(int(dp.item())):    
         for j in range(int(pp.item()-1)):
@@ -113,13 +121,31 @@ def get_cost_c(cluster_info, model_config, parallel_config, amp_config, dp_index
                 node_peer = rank_node_map[int(rank_peer.item())]
                 
                 if node_cur != node_peer: 
-                    cur_bandwidth = min(cluster_info[node_cur][0], cluster_info[node_peer][0])
+                    
+                    if comm_type == "eth":
+                        cur_bandwidth = min(cluster_info[node_cur][0], cluster_info[node_peer][0])
+                    elif comm_type == "ib":
+                        gpu_m_lst.append(i)
+                        if gpu_m_lst[0] + 1 == 1:
+                            cur_bandwidth = min(cluster_info[node_cur][0], cluster_info[node_peer][0])
+                            
+                        elif gpu_m_lst[0] + 1 == 2:
+                            cur_bandwidth = min(cluster_info[node_cur][1], cluster_info[node_peer][1])
+                            
+                        elif gpu_m_lst[0] + 1 == 4:
+                            cur_bandwidth = min(cluster_info[node_cur][2], cluster_info[node_peer][2])
+                                
+                    
                 else:
-                    cur_bandwidth = cluster_info[node_cur][1]
+                    if comm_type == "eth":
+                        cur_bandwidth = cluster_info[node_cur][1]
+                    elif comm_type == "ib":
+                        cur_bandwidth = cluster_info[node_cur][3]
+                        
                 if cur_bandwidth < slowest_bandwidth:
                     slowest_bandwidth = cur_bandwidth
             for k in range(_num_layer-1):
-                cost_c[i][k][j] = layer_volume[k]  / slowest_bandwidth
+                cost_c[i][k][j] = layer_volume[k] * precision / slowest_bandwidth
             
     cost_c = torch.mean(cost_c, dim=0)
     return cost_c
@@ -139,11 +165,14 @@ def get_cost_e(cluster_info, model_config, parallel_config, amp_config):
     pp = parallel_config["pp"]
 
     profile_cost = amp_config["profile_cost"]
-    _layer = ["embed2h", "noop"]
+    # _layer = ["embed2h", "noop"]
+    _layer = ["embed2h"]
     for i in range(int(n.item())):
         _layer.append("transformer_layer")
     
-    _layer.extend(["noop","noop", "embed2v", "noop"])
+    # _layer.extend(["noop","noop", "embed2v", "noop"])
+    _layer.extend(["embed2v"])
+    
     _num_layer = len(_layer)
             
     cost_e = np.zeros((int(dp.item()), _num_layer))
@@ -174,7 +203,7 @@ def get_cost_e(cluster_info, model_config, parallel_config, amp_config):
     cost_e = torch.mean(cost_e, dim=0)
     return cost_e
 
-def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, partition):
+def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, partition, comm_type):
     h = model_config["hidden_size"]
     s = model_config["sequence_length"]
     n = model_config["num_layers"]
@@ -186,11 +215,13 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
     dp = parallel_config["dp"]
     pp = parallel_config["pp"]
     
-    _layer = ["embed2h", "noop"]
+    # _layer = ["embed2h", "noop"]
+    _layer = ["embed2h"]
     for i in range(int(n.item())):
         _layer.append("transformer_layer")
     
-    _layer.extend(["noop","noop", "embed2v", "noop"])
+    # _layer.extend(["noop","noop", "embed2v", "noop"])
+    _layer.extend(["embed2v"])
     _num_layer = len(_layer)
         
     # First translate to deepspeed partition form
@@ -206,7 +237,7 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
     max_dp = torch.zeros(1,)
     for i in range(int(pp.item())):
         for j in range(int(mp.item())):
-            
+            gpu_m_lst = []
             slowest = float("inf")
             for k in range(int(dp.item())):
                 rank_cur = axis2rank(axis=(i,k,j), mp_deg=mp, dp_deg=dp, pp_deg=pp)
@@ -218,9 +249,21 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
                     
                     
                 if node_cur == node_next:
-                    connectivity = cluster_info[node_cur][1]
+                    if comm_type == "ib":
+                        connectivity = cluster_info[node_cur][3]
+                    elif comm_type == "eth":
+                        connectivity = cluster_info[node_cur][1]
                 else:
-                    connectivity = min(cluster_info[node_cur][0], cluster_info[node_next][0])
+                    if comm_type == "eth":
+                        connectivity = min(cluster_info[node_cur][0], cluster_info[node_next][0])
+                    elif comm_type == "ib":
+                        gpu_m_lst.append(k)
+                        if gpu_m_lst[0] + 1 == 1:
+                            connectivity = min(cluster_info[node_cur][0], cluster_info[node_next][0])
+                        elif gpu_m_lst[0] + 1 == 2:
+                            connectivity = min(cluster_info[node_cur][1], cluster_info[node_next][1])
+                        elif gpu_m_lst[0] + 1 == 4:
+                            connectivity = min(cluster_info[node_cur][2], cluster_info[node_next][2])
                         
             slowest = min(slowest, connectivity)
             dp_const = 2 * (dp-1) / (dp * slowest)
@@ -242,17 +285,18 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
                     raise RuntimeError("Unknown layer type.")
                         
             #print(f"dp: {dp_const} and param {param_count}")
-            cur_dp = dp_const * param_count
+            cur_dp = dp_const * param_count * 16
             if cur_dp > max_dp:
                 max_dp = cur_dp
                 
     return ds_partition, max_dp
 
-def predict(config, bs, mbs, cluster_info, model_config, amp_config, oth):
+def predict(config, bs, mbs, cluster_info, model_config, amp_config, oth, comm_type):
     L = model_config["num_layers"]
     cost = torch.zeros(1,)
     M, N = config.shape
     config = np.asarray(config)
+    comm_type = comm_type
        
     if np.all(config == -1):
         rank_map = defaultdict(list)
@@ -303,31 +347,31 @@ def predict(config, bs, mbs, cluster_info, model_config, amp_config, oth):
                 rank_counter[cur_pp] += 1
             
     # infer number of micro-batch size B
-    B = bs / (n * mbs)
+    B = bs / (n * mbs) # n = dp degree , bs = gbs = 64
             
     parallel_config = {"mp" : m, "dp" : n, "pp" : pp, "micro_bs" : mbs, "rank_map" : rank_map, "rank_node_map": rank_node_map}
         
     cost_e = get_cost_e(cluster_info=cluster_info, 
                         model_config=model_config, parallel_config=parallel_config, amp_config=amp_config)
     cost_c = get_cost_c(cluster_info=cluster_info, 
-                        model_config=model_config, parallel_config=parallel_config, amp_config=amp_config)
+                        model_config=model_config, parallel_config=parallel_config, amp_config=amp_config, comm_type=comm_type)
            
     #partition, _ = pipe_dp(int(L.item()), np.asarray(cost_e.detach()), np.asarray(cost_c.detach()), int(pp.item()), int(B.item()))
     if int(B.item()) == 1:
         partition, _ = pipe_uniform(int(L.item()), int(pp.item()))
-        partition[0] += 2
-        partition[-1] += 4
+        partition[0] += 1 # emb
+        partition[-1] += 1 # emb
     else:
         partition, _ = pipe_ast(len(cost_e), np.asarray(cost_e), np.asarray(cost_c), int(pp.item()), int(B.item()))
     
     print(f"amp gives partition: {partition}")
-    cost = pipe_cost(L, cost_e, cost_c, pp, B, partition)
+    pipeline_cost = pipe_cost(L, cost_e, cost_c, pp, B, partition)
         
     # translate to ds form, add data parallelism cost
     ds_partition, dp_side_cost = dp_cost(config, cluster_info=cluster_info, 
                         model_config=model_config, parallel_config=parallel_config, 
-                        amp_config=amp_config, partition=partition)
+                        amp_config=amp_config, partition=partition, comm_type=comm_type)
        
-    cost += dp_side_cost
+    cost = pipeline_cost + dp_side_cost
     #print(ds_partition, cost, dp_side_cost)
-    return rank_map, ds_partition, cost
+    return pipeline_cost, dp_side_cost, cost, partition

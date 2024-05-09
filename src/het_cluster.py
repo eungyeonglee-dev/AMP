@@ -11,6 +11,7 @@ import copy
 from tqdm import tqdm
 
 import numpy as np
+import pandas as pd
 
 import torch
 from torch import optim as optim
@@ -26,6 +27,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--full", action="store_true", help="Whether to run real trials")
 parser.add_argument("--budget", type=int, default=-1, help="how many real trials to launch")
+parser.add_argument("--comm_type", type=str, default="ib", help="which type")
 
 args = parser.parse_args()
 # cluster information
@@ -33,7 +35,8 @@ args = parser.parse_args()
 time_s = time.time()
 # number of GPU per node, number of nodes
 M = 4
-N = 4
+N = 8
+hetero_node_num = 1
 
 home_path = os.environ['HOME']
 dir_path = os.path.join(home_path, 'amp_main_logs')
@@ -43,21 +46,35 @@ if not os.path.exists(dir_path):
 cluster_info = {}
 
 # inter-node bandwidth, intra-node bandwidth
-for i in range(N-1):
-        cluster_info[i] = [torch.tensor([10 * 1e9 / 32]).float(), torch.tensor([170 * 1e9 / 32]).float()]
-cluster_info[N-1] = [torch.tensor([50 * 1e9 / 32]).float(), torch.tensor([50 * 1e9 / 32]).float()]
+for i in range(N):
+        # A10 ethernet / PCIe
+        if args.comm_type == "ib":
+            cluster_info[i] = [torch.tensor([120 * 1e9]).float(), torch.tensor([108 * 1e9]).float(), torch.tensor([67 * 1e9]).float(), torch.tensor([16 * 8 * 1e9]).float()]
+        elif args.comm_type == "eth":
+            cluster_info[i] = [torch.tensor([40 * 1e9]).float(), torch.tensor([16 * 8 * 1e9]).float()]
+for i in range(hetero_node_num):
+        # A100 ethernet / NVLink
+        if args.comm_type == "ib":
+            cluster_info[i] = [torch.tensor([120 * 1e9]).float(), torch.tensor([108 * 1e9]).float(), torch.tensor([67 * 1e9]).float(), torch.tensor([16 * 8 * 1e9]).float()]
+            # cluster_info[i] = [torch.tensor([120 * 1e9]).float(), torch.tensor([108 * 1e9]).float(), torch.tensor([67 * 1e9]).float(), torch.tensor([230 * 8 * 1e9]).float()]
+        elif args.comm_type == "eth":
+            cluster_info[i] = [torch.tensor([40 * 1e9]).float(), torch.tensor([230 * 8 * 1e9]).float()]
+            
+# device placement A100 A10 A10 A10 A10 A10 A10 A10 / A100:A10 = 1:7
 
-model_config = {"hidden_size": torch.tensor([1024]).float(), 
+#GPT2XL
+model_config = {"hidden_size": torch.tensor([1600]).float(), 
                 "sequence_length": torch.tensor([1024]).float(), 
-                "num_layers": torch.tensor([24]).float(), 
+                "num_layers": torch.tensor([48]).float(), 
                 "vocab_size":torch.tensor([52256]).float(),
-                "type":"gpt2"}
+                "type":"gpt2XL"}
 
 config_h = int((model_config["hidden_size"]).item())
 config_n = int(model_config["num_layers"].item())
 time_stamp = int(time.time())
+
 exp_name = f"het_cluster"
-record_file = f"{os.path.join(dir_path, exp_name)}_{time_stamp}.txt"
+record_file = f"{os.path.join(dir_path, exp_name)}_{time_stamp}.csv"
 simulate_dir = os.path.join(home_path, "amp_simulate")
 if not os.path.exists(simulate_dir):
     os.mkdir(simulate_dir)
@@ -71,16 +88,16 @@ if os.path.exists(os.path.join(home_path, "tmp")):
 # save this name to env
 os.environ["amp_log_path"] = record_file
 
-global_bs = 32
-model = AMP(model_config, exp_name)
+global_bs = 64
+model = AMP(model_config, exp_name, args.comm_type)
 assert (global_bs % M == 0) and (global_bs % N == 0), "global batch size is too irrgular"
 
 want_simulate = [] 
 feasible = {}
 
-with open(record_file, "a") as fp:
-    fp.write(f"{model_config}\n")                
-    fp.write(f"gbs:{global_bs}\n")                
+# with open(record_file, "a") as fp:
+#     fp.write(f"{model_config}\n")                
+#     fp.write(f"gbs:{global_bs}\n")                
 known = None
 iter_count = 0
 
@@ -91,25 +108,33 @@ while True:
         break
     else:
         h, w, mbs, known = ret
-        oth = {"mp_deg": torch.ones(1,)*h, "dp_deg": torch.ones(1,)*w, "pp_deg": torch.ones(1,)*(M*N/(h*w))}
+        tp = torch.ones(1,)*h
+        dp = torch.ones(1,)*w
+        pp = torch.ones(1,)*(M*N/(h*w))
+        oth = {"mp_deg": tp, "dp_deg": dp, "pp_deg": pp}
         fake_config = np.ones((M,N)) * (-1)
         model_args = (fake_config, global_bs, mbs, cluster_info, model_config, oth)    
         
         with torch.no_grad():
-            rank_map, partition, cost = model(model_args)
+            pipeline_cost, dp_side_cost, cost, partition = model(model_args)
         
-        want_simulate.append(((mbs, oth, rank_map, partition), cost))
+        want_simulate.append((mbs, int(tp.item()), int(pp.item()), int(dp.item()), partition, cost.item(), pipeline_cost.item(), dp_side_cost.item()))
     iter_count += 1
     if iter_count % 10 == 0:
         print(f"AMP finishes {iter_count} iterations")
 time_e = time.time()
 print(f"AMP finishes without placement in {iter_count} iterations in {time_e - time_s}")
 
-sorted_settings = sorted(want_simulate, key = lambda kv: kv[1])
-with open(record_file, "a") as fp:
-    for item in sorted_settings:
-        fp.write(f"rank {sorted_settings.index(item)}: {item}")
-        fp.write("\n")
+sorted_settings = sorted(want_simulate, key = lambda kv: kv[5])
+df = pd.DataFrame(sorted_settings, columns=['mbs','tp','pp','dp','partition','estimated time (s/step)', \
+                                            'pipeline time','DP AR time'])
+df.to_csv(record_file, index=False)
+print(f"save file: {record_file}")
+
+# with open(record_file, "a") as fp:
+#     for item in sorted_settings:
+#         fp.write(f"rank {sorted_settings.index(item)}: {item}")
+#         fp.write("\n")
 
 # Run real trials to get ground truth runtime
 if args.full:
