@@ -1,0 +1,142 @@
+total possible amp candidates without placment: 74
+pipe_ast used 15.14 seconds with 50 layers and 32 stages.
+amp gives partition: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+pipe_ast used 10.55 seconds with 50 layers and 16 stages.
+amp gives partition: [4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4]
+pipe_ast used 5.78 seconds with 50 layers and 8 stages.
+amp gives partition: [7, 6, 6, 6, 6, 6, 6, 7]
+pipe_ast used 2.78 seconds with 50 layers and 4 stages.
+amp gives partition: [13, 12, 12, 13]
+pipe_ast used 1.13 seconds with 50 layers and 2 stages.
+amp gives partition: [25, 25]
+pipe_ast used 0.03 seconds with 50 layers and 1 stages.
+amp gives partition: [50]
+pipe_ast used 10.36 seconds with 50 layers and 16 stages.
+amp gives partition: [1, 1, 1, 1, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3]
+pipe_ast used 5.69 seconds with 50 layers and 8 stages.
+amp gives partition: [2, 7, 7, 7, 7, 7, 7, 6]
+pipe_ast used 2.7 seconds with 50 layers and 4 stages.
+amp gives partition: [12, 13, 13, 12]
+pipe_ast used 1.02 seconds with 50 layers and 2 stages.
+amp gives partition: [25, 25]
+AMP finishes 10 iterations
+pipe_ast used 0.03 seconds with 50 layers and 1 stages.
+amp gives partition: [50]
+pipe_ast used 5.71 seconds with 50 layers and 8 stages.
+amp gives partition: [2, 7, 7, 7, 7, 7, 7, 6]
+pipe_ast used 2.68 seconds with 50 layers and 4 stages.
+amp gives partition: [12, 13, 13, 12]
+pipe_ast used 1.05 seconds with 50 layers and 2 stages.
+amp gives partition: [25, 25]
+pipe_ast used 0.03 seconds with 50 layers and 1 stages.
+amp gives partition: [50]
+pipe_ast used 15.17 seconds with 50 layers and 32 stages.
+amp gives partition: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+pipe_ast used 10.46 seconds with 50 layers and 16 stages.
+amp gives partition: [4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4]
+pipe_ast used 5.73 seconds with 50 layers and 8 stages.
+amp gives partition: [7, 6, 6, 6, 6, 6, 6, 7]
+pipe_ast used 2.8 seconds with 50 layers and 4 stages.
+amp gives partition: [13, 12, 12, 13]
+pipe_ast used 1.11 seconds with 50 layers and 2 stages.
+amp gives partition: [25, 25]
+AMP finishes 20 iterations
+amp gives partition: [50]
+pipe_ast used 10.44 seconds with 50 layers and 16 stages.
+amp gives partition: [1, 1, 1, 1, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3]
+pipe_ast used 5.71 seconds with 50 layers and 8 stages.
+amp gives partition: [2, 7, 7, 7, 7, 7, 7, 6]
+pipe_ast used 2.7 seconds with 50 layers and 4 stages.
+amp gives partition: [12, 13, 13, 12]
+pipe_ast used 1.05 seconds with 50 layers and 2 stages.
+amp gives partition: [25, 25]
+pipe_ast used 0.03 seconds with 50 layers and 1 stages.
+amp gives partition: [50]
+pipe_ast used 5.71 seconds with 50 layers and 8 stages.
+amp gives partition: [2, 7, 7, 7, 7, 7, 7, 6]
+pipe_ast used 2.71 seconds with 50 layers and 4 stages.
+amp gives partition: [12, 13, 13, 12]
+pipe_ast used 1.02 seconds with 50 layers and 2 stages.
+amp gives partition: [25, 25]
+pipe_ast used 0.03 seconds with 50 layers and 1 stages.
+amp gives partition: [50]
+AMP finishes 30 iterations
+pipe_ast used 15.11 seconds with 50 layers and 32 stages.
+amp gives partition: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+pipe_ast used 10.39 seconds with 50 layers and 16 stages.
+amp gives partition: [4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4]
+pipe_ast used 5.75 seconds with 50 layers and 8 stages.
+amp gives partition: [7, 6, 6, 6, 6, 6, 6, 7]
+pipe_ast used 2.81 seconds with 50 layers and 4 stages.
+amp gives partition: [13, 12, 12, 13]
+amp gives partition: [25, 25]
+pipe_ast used 10.39 seconds with 50 layers and 16 stages.
+amp gives partition: [1, 1, 1, 1, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3]
+pipe_ast used 5.7 seconds with 50 layers and 8 stages.
+amp gives partition: [2, 7, 7, 7, 7, 7, 7, 6]
+pipe_ast used 2.71 seconds with 50 layers and 4 stages.
+amp gives partition: [12, 13, 13, 12]
+pipe_ast used 1.03 seconds with 50 layers and 2 stages.
+amp gives partition: [25, 25]
+amp gives partition: [50]
+AMP finishes 40 iterations
+pipe_ast used 5.73 seconds with 50 layers and 8 stages.
+amp gives partition: [2, 7, 7, 7, 7, 7, 7, 6]
+pipe_ast used 2.69 seconds with 50 layers and 4 stages.
+amp gives partition: [12, 13, 13, 12]
+pipe_ast used 1.02 seconds with 50 layers and 2 stages.
+amp gives partition: [25, 25]
+pipe_ast used 0.05 seconds with 50 layers and 1 stages.
+amp gives partition: [50]
+pipe_ast used 15.02 seconds with 50 layers and 32 stages.
+amp gives partition: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+pipe_ast used 10.46 seconds with 50 layers and 16 stages.
+amp gives partition: [4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4]
+pipe_ast used 5.69 seconds with 50 layers and 8 stages.
+amp gives partition: [7, 6, 6, 6, 6, 6, 6, 7]
+amp gives partition: [13, 12, 12, 13]
+pipe_ast used 10.41 seconds with 50 layers and 16 stages.
+amp gives partition: [1, 1, 1, 1, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3]
+pipe_ast used 5.73 seconds with 50 layers and 8 stages.
+amp gives partition: [2, 7, 7, 7, 7, 7, 7, 6]
+AMP finishes 50 iterations
+pipe_ast used 2.67 seconds with 50 layers and 4 stages.
+amp gives partition: [12, 13, 13, 12]
+amp gives partition: [25, 25]
+pipe_ast used 5.73 seconds with 50 layers and 8 stages.
+amp gives partition: [2, 7, 7, 7, 7, 7, 7, 6]
+pipe_ast used 2.71 seconds with 50 layers and 4 stages.
+amp gives partition: [12, 13, 13, 12]
+pipe_ast used 1.02 seconds with 50 layers and 2 stages.
+amp gives partition: [25, 25]
+amp gives partition: [50]
+pipe_ast used 15.24 seconds with 50 layers and 32 stages.
+amp gives partition: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+pipe_ast used 10.44 seconds with 50 layers and 16 stages.
+amp gives partition: [4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4]
+amp gives partition: [7, 6, 6, 6, 6, 6, 6, 7]
+pipe_ast used 10.44 seconds with 50 layers and 16 stages.
+amp gives partition: [1, 1, 1, 1, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3]
+AMP finishes 60 iterations
+pipe_ast used 5.7 seconds with 50 layers and 8 stages.
+amp gives partition: [2, 7, 7, 7, 7, 7, 7, 6]
+amp gives partition: [13, 12, 12, 13]
+pipe_ast used 5.72 seconds with 50 layers and 8 stages.
+amp gives partition: [2, 7, 7, 7, 7, 7, 7, 6]
+pipe_ast used 2.71 seconds with 50 layers and 4 stages.
+amp gives partition: [11, 13, 13, 13]
+amp gives partition: [25, 25]
+pipe_ast used 15.17 seconds with 50 layers and 32 stages.
+amp gives partition: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+amp gives partition: [4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4]
+pipe_ast used 10.36 seconds with 50 layers and 16 stages.
+amp gives partition: [1, 1, 1, 1, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3]
+amp gives partition: [7, 6, 6, 6, 6, 6, 6, 7]
+pipe_ast used 5.71 seconds with 50 layers and 8 stages.
+amp gives partition: [1, 7, 7, 7, 7, 7, 7, 7]
+AMP finishes 70 iterations
+amp gives partition: [13, 12, 12, 13]
+amp gives partition: [3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2]
+amp gives partition: [4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4]
+amp gives partition: [7, 6, 6, 6, 6, 6, 6, 7]
+AMP finishes without placement in 74 iterations in 334.93888115882874
