@@ -1,4 +1,5 @@
 from collections import defaultdict
+from argparse import Namespace 
 import time
 import json
 import copy
@@ -21,14 +22,16 @@ sys.path.append(workdir_path)
 sys.path.append(example_path)
 
 class AMP(nn.Module):
-    def __init__(self, model_config, exp_name, comm_type):
+    def __init__(self, args:Namespace, model_config, exp_name):
         
         super().__init__()
         self.model_config = model_config
         self.exp_name = "init_" + exp_name 
         self.model_type = model_config["type"]
         assert self.model_type == "gpt2XL"
-        self.comm_type=comm_type 
+        self.comm_type=args.comm_type
+        self.num_node = args.num_node
+        self.hetero_num_node = args.hetero_node_num 
         self.init_param()
         
     def init_param(self):
@@ -46,13 +49,13 @@ class AMP(nn.Module):
         #if self.estimate:
         for mp_size in [1,2,4]:
             # known_cost directory stores the real forward time with correponding model parallel degree.
-            known_record = f"known_cost/{self.model_type}_A10_{mp_size}" 
+            known_record = f"known_cost/{self.model_type}_A100_{mp_size}" 
             cur_profile_cost1 = 3 * np.load(f"{known_record}.npy")
-            known_record = f"known_cost/{self.model_type}_A100_{mp_size}"
+            known_record = f"known_cost/{self.model_type}_A10_{mp_size}"
             cur_profile_cost2 = 3 * np.load(f"{known_record}.npy")
 
             # average between different speed of GPUs
-            cur_profile_cost = cur_profile_cost1 * 7/8 + cur_profile_cost2 * 1/8
+            cur_profile_cost = cur_profile_cost1 * self.hetero_num_node/self.num_node + cur_profile_cost2 * (self.num_node - self.hetero_num_node)/self.num_node
             self.profile_cost[str(mp_size)] = cur_profile_cost
             #print(f"using profile cost with mp_size {mp_size}: {cur_profile_cost}")
 

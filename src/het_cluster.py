@@ -28,15 +28,22 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--full", action="store_true", help="Whether to run real trials")
 parser.add_argument("--budget", type=int, default=-1, help="how many real trials to launch")
 parser.add_argument("--comm_type", type=str, default="ib", help="which type")
+parser.add_argument("--hetero_node_num", type=int, default=1, help="hetero_node_num")
+parser.add_argument("--node_per_gpu", type=int, default=4, help="node_per_gpu")
+parser.add_argument("--num_node", type=int, default=8, help="num_node")
+parser.add_argument("--gbs", type=int, default=64, help="num_node")
 
 args = parser.parse_args()
 # cluster information
 
 time_s = time.time()
 # number of GPU per node, number of nodes
-M = 4
-N = 8
-hetero_node_num = 1
+M = args.node_per_gpu
+N = args.num_node
+hetero_node_num=args.hetero_node_num
+
+if hetero_node_num == M:
+    assert False, "you have to assign num of nodes inequaly"
 
 home_path = os.environ['HOME']
 dir_path = os.path.join(home_path, 'amp_main_logs')
@@ -55,8 +62,8 @@ for i in range(N):
 for i in range(hetero_node_num):
         # A100 ethernet / NVLink
         if args.comm_type == "ib":
-            cluster_info[i] = [torch.tensor([120 * 1e9]).float(), torch.tensor([108 * 1e9]).float(), torch.tensor([67 * 1e9]).float(), torch.tensor([16 * 8 * 1e9]).float()]
-            # cluster_info[i] = [torch.tensor([120 * 1e9]).float(), torch.tensor([108 * 1e9]).float(), torch.tensor([67 * 1e9]).float(), torch.tensor([230 * 8 * 1e9]).float()]
+            # cluster_info[i] = [torch.tensor([120 * 1e9]).float(), torch.tensor([108 * 1e9]).float(), torch.tensor([67 * 1e9]).float(), torch.tensor([16 * 8 * 1e9]).float()]
+            cluster_info[i] = [torch.tensor([120 * 1e9]).float(), torch.tensor([108 * 1e9]).float(), torch.tensor([67 * 1e9]).float(), torch.tensor([230 * 8 * 1e9]).float()]
         elif args.comm_type == "eth":
             cluster_info[i] = [torch.tensor([40 * 1e9]).float(), torch.tensor([230 * 8 * 1e9]).float()]
             
@@ -73,11 +80,12 @@ config_h = int((model_config["hidden_size"]).item())
 config_n = int(model_config["num_layers"].item())
 time_stamp = int(time.time())
 
-exp_name = f"het_cluster"
+exp_name = f"GPT2XL_A100_{hetero_node_num}_A10_{N-hetero_node_num}_IB_AMP"
+# record_file = f"{os.path.join(dir_path, exp_name)}.csv"
 record_file = f"{os.path.join(dir_path, exp_name)}_{time_stamp}.csv"
-simulate_dir = os.path.join(home_path, "amp_simulate")
-if not os.path.exists(simulate_dir):
-    os.mkdir(simulate_dir)
+# simulate_dir = os.path.join(home_path, "amp_simulate")
+# if not os.path.exists(simulate_dir):
+#     os.mkdir(simulate_dir)
 
 # remove cache directory from last run
 if os.path.exists(os.path.join(home_path, "tmp")):
@@ -88,8 +96,8 @@ if os.path.exists(os.path.join(home_path, "tmp")):
 # save this name to env
 os.environ["amp_log_path"] = record_file
 
-global_bs = 64
-model = AMP(model_config, exp_name, args.comm_type)
+global_bs = args.gbs
+model = AMP(args, model_config, exp_name)
 assert (global_bs % M == 0) and (global_bs % N == 0), "global batch size is too irrgular"
 
 want_simulate = [] 
