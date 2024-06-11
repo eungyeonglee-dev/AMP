@@ -2,6 +2,7 @@ import copy
 import time
 import os
 from collections import defaultdict
+from argparse import Namespace
 
 import torch
 import numpy as np
@@ -329,7 +330,10 @@ def megatron_strategy(M, N, gbs, known):
     return h, w, mbs, known
 
 
-def amp_no_placement_strategy(M, N, gbs, known):
+def amp_no_placement_strategy(args:Namespace, M, N, gbs, known):
+    test_tp = 1
+    test_dp = 4
+    test_mbs = 1
     if known is None:
         known = defaultdict(list)
         ele_count = 0
@@ -339,12 +343,19 @@ def amp_no_placement_strategy(M, N, gbs, known):
             for w in factor(remain): # dp
                 assert gbs % w == 0
                 for mbs in factor(gbs // w):
-                    ele_count += 1
-                    known[mbs].append((h, w))
+                    if args.test:
+                        if h == test_tp and w == test_dp and mbs == test_mbs:
+                            ele_count += 1
+                            known[mbs].append((h, w))
+                        else:
+                            pass
+                    else:
+                        ele_count += 1
+                        known[mbs].append((h, w))
         print(f"total possible amp candidates without placment: {ele_count}")
     if len(known.keys()) == 0:
         return None
-
+    # print(known)
     #print(known)
     mbs = list(known.keys())[0]
     (h, w) = known[mbs].pop(0)

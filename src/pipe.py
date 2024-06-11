@@ -13,7 +13,7 @@ def pipe_ast(L, cost_e, cost_c, k, B):
         while ptr + i <= L:
             possible.append(sum(cost_e[ptr:ptr+i]))
             ptr += 1
-    
+            
     possible = sorted(list(set(possible)))
     trace = []
     for i in range(L):
