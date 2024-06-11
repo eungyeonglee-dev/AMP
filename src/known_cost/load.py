@@ -1,32 +1,12 @@
 import numpy as np
 
-data_1 = np.load('gpt2XL_A10_1.npy')
-print(data_1)
-print(len(data_1))
-
-# transformer_db = data_1[2]
-# data_1[2:26] = transformer_db
-
-# print(data_1)
-# print(len(data_1))
-
-
-# data_1 = np.load('gpt2_G4_2.npy')
-# print(data_1)
-# print(len(data_1))
-
-# data_1 = np.load('gpt2_G4_4.npy')
-# print(data_1)
-# print(len(data_1))
-
-# data_1 = np.load('gpt2_P3_1.npy')
-# print(data_1)
-# print(len(data_1))
-
-# data_1 = np.load('gpt2_P3_2.npy')
-# print(data_1)
-# print(len(data_1))
-
-# data_1 = np.load('gpt2_P3_4.npy')
-# print(data_1)
-# print(len(data_1))
+model = ['bert','gpt2XL']
+tp = [1,2,4]
+gpu_type = ['A100','A10']
+for m in model:
+    for g in gpu_type:
+        for t in tp:
+            file_name = f"{m}_{g}_{t}.npy"
+            data_1 = np.load(file_name)
+            print(f"{file_name}, len: {len(data_1)}")
+            print(data_1)
