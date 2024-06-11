@@ -28,7 +28,7 @@ class AMP(nn.Module):
         self.model_config = model_config
         self.exp_name = "init_" + exp_name 
         self.model_type = model_config["type"]
-        assert self.model_type == "gpt2XL"
+        # assert self.model_type == "gpt2XL"
         self.comm_type=args.comm_type
         self.num_node = args.num_node
         self.hetero_num_node = args.hetero_node_num 
@@ -49,13 +49,18 @@ class AMP(nn.Module):
         #if self.estimate:
         for mp_size in [1,2,4]:
             # known_cost directory stores the real forward time with correponding model parallel degree.
-            known_record = f"known_cost/{self.model_type}_A100_{mp_size}" 
-            cur_profile_cost1 = 3 * np.load(f"{known_record}.npy")
-            known_record = f"known_cost/{self.model_type}_A10_{mp_size}"
-            cur_profile_cost2 = 3 * np.load(f"{known_record}.npy")
-
-            # average between different speed of GPUs
-            cur_profile_cost = cur_profile_cost1 * self.hetero_num_node/self.num_node + cur_profile_cost2 * (self.num_node - self.hetero_num_node)/self.num_node
+            if self.hetero_num_node > 0:
+                known_record = f"known_cost/{self.model_type}_A100_{mp_size}" 
+                cur_profile_cost1 = 3 * np.load(f"{known_record}.npy")
+                known_record = f"known_cost/{self.model_type}_A10_{mp_size}"
+                cur_profile_cost2 = 3 * np.load(f"{known_record}.npy")
+                # average between different speed of GPUs
+                cur_profile_cost = cur_profile_cost1 * self.hetero_num_node/self.num_node + cur_profile_cost2 * (self.num_node - self.hetero_num_node)/self.num_node
+            else:
+                known_record = f"known_cost/{self.model_type}_A10_{mp_size}"
+                cur_profile_cost = 3 * np.load(f"{known_record}.npy")
+                
+            # cur_profile_cost = cur_profile_cost2
             self.profile_cost[str(mp_size)] = cur_profile_cost
             #print(f"using profile cost with mp_size {mp_size}: {cur_profile_cost}")
 
@@ -111,8 +116,8 @@ def get_cost_c(cluster_info, model_config, parallel_config, amp_config, dp_index
             raise RuntimeError("Unknown layer type.")
             
     # Build communication cost between pipeline stages by looking up the cluster information
-    gpu_m_lst=[]
     cost_c = torch.zeros((int(dp.item()), _num_layer-1, int(pp.item()-1)))
+    
     for i in range(int(dp.item())):    
         for j in range(int(pp.item()-1)):
             # get the slowest mp gpu connection
@@ -124,21 +129,7 @@ def get_cost_c(cluster_info, model_config, parallel_config, amp_config, dp_index
                 node_peer = rank_node_map[int(rank_peer.item())]
                 
                 if node_cur != node_peer: 
-                    
-                    if comm_type == "eth":
-                        cur_bandwidth = min(cluster_info[node_cur][0], cluster_info[node_peer][0])
-                    elif comm_type == "ib":
-                        gpu_m_lst.append(i)
-                        if gpu_m_lst[0] + 1 == 1:
-                            cur_bandwidth = min(cluster_info[node_cur][0], cluster_info[node_peer][0])
-                            
-                        elif gpu_m_lst[0] + 1 == 2:
-                            cur_bandwidth = min(cluster_info[node_cur][1], cluster_info[node_peer][1])
-                            
-                        elif gpu_m_lst[0] + 1 == 4:
-                            cur_bandwidth = min(cluster_info[node_cur][2], cluster_info[node_peer][2])
-                                
-                    
+                    cur_bandwidth = min(cluster_info[node_cur][0], cluster_info[node_peer][0])
                 else:
                     if comm_type == "eth":
                         cur_bandwidth = cluster_info[node_cur][1]
@@ -160,6 +151,7 @@ def get_cost_e(cluster_info, model_config, parallel_config, amp_config):
     s = model_config["sequence_length"]
     n = model_config["num_layers"]
     v = model_config["vocab_size"]
+    model_type = model_config["type"]
     bs = parallel_config["micro_bs"]
     rank_map = parallel_config["rank_map"]
     rank_node_map = parallel_config["rank_node_map"]
@@ -245,12 +237,8 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
             for k in range(int(dp.item())):
                 rank_cur = axis2rank(axis=(i,k,j), mp_deg=mp, dp_deg=dp, pp_deg=pp)
                 node_cur = rank_node_map[int(rank_cur.item())]
-                    
-                    
                 rank_next = axis2rank(axis=(i,(k+1)%(dp.item()),j), mp_deg=mp, dp_deg=dp, pp_deg=pp)
                 node_next = rank_node_map[int(rank_next.item())]
-                    
-                    
                 if node_cur == node_next:
                     if comm_type == "ib":
                         connectivity = cluster_info[node_cur][3]

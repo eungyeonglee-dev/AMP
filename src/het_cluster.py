@@ -32,6 +32,8 @@ parser.add_argument("--hetero_node_num", type=int, default=1, help="hetero_node_
 parser.add_argument("--node_per_gpu", type=int, default=4, help="node_per_gpu")
 parser.add_argument("--num_node", type=int, default=8, help="num_node")
 parser.add_argument("--gbs", type=int, default=64, help="num_node")
+parser.add_argument("--model_type", type=str, default="gpt2XL", help="num_node")
+parser.add_argument("--add_exp_name", type=str, help="num_node")
 
 args = parser.parse_args()
 # cluster information
@@ -69,18 +71,30 @@ for i in range(hetero_node_num):
             
 # device placement A100 A10 A10 A10 A10 A10 A10 A10 / A100:A10 = 1:7
 
-#GPT2XL
-model_config = {"hidden_size": torch.tensor([1600]).float(), 
-                "sequence_length": torch.tensor([1024]).float(), 
-                "num_layers": torch.tensor([48]).float(), 
-                "vocab_size":torch.tensor([52256]).float(),
-                "type":"gpt2XL"}
+model_type = args.model_type 
+if model_type == "gpt2XL":
+    #GPT2XL
+    model_config = {"hidden_size": torch.tensor([1600]).float(), 
+                    "sequence_length": torch.tensor([1024]).float(), 
+                    "num_layers": torch.tensor([48]).float(), 
+                    "vocab_size":torch.tensor([52256]).float(),
+                    "type":"gpt2XL"}
+elif model_type == "bert":
+    model_config = {"hidden_size": torch.tensor([1024]).float(), 
+                    "sequence_length": torch.tensor([512]).float(), 
+                    "num_layers": torch.tensor([24]).float(), 
+                    "vocab_size":torch.tensor([30522]).float(),
+                    "type":"bert"}    
 
 config_h = int((model_config["hidden_size"]).item())
 config_n = int(model_config["num_layers"].item())
 time_stamp = int(time.time())
 
-exp_name = f"GPT2XL_A100_{hetero_node_num}_A10_{N-hetero_node_num}_IB_AMP"
+if hetero_node_num > 0:
+    exp_name = f"{model_type}_A100_{hetero_node_num}_A10_{N-hetero_node_num}_{args.comm_type}_AMP" + args.add_exp_name
+else:
+    exp_name = f"{model_type}_A10_{N-hetero_node_num}_{args.comm_type}_AMP" + args.add_exp_name
+    
 # record_file = f"{os.path.join(dir_path, exp_name)}.csv"
 record_file = f"{os.path.join(dir_path, exp_name)}_{time_stamp}.csv"
 # simulate_dir = os.path.join(home_path, "amp_simulate")
