@@ -33,6 +33,7 @@ class AMP(nn.Module):
         self.num_node = args.num_node
         self.hetero_num_node = args.hetero_node_num 
         self.init_param()
+        self.args = args
         
     def init_param(self):
         h = float(self.model_config["hidden_size"].item())
@@ -70,7 +71,7 @@ class AMP(nn.Module):
         comm_type = self.comm_type
         config, bs, micro_bs, cluster_info, model_config, oth = args
         amp_config = {"profile_cost" : self.profile_cost}
-        pipeline_cost, dp_side_cost, cost, partition = predict(config, bs, micro_bs, cluster_info, model_config, amp_config, oth, comm_type)
+        pipeline_cost, dp_side_cost, cost, partition = predict(self.args, config, bs, micro_bs, cluster_info, model_config, amp_config, oth)
         return pipeline_cost, dp_side_cost, cost, partition
         
 # pipeline communication cost, return shape: (L-1, pp-1)
@@ -282,13 +283,13 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
                 
     return ds_partition, max_dp
 
-def predict(config, bs, mbs, cluster_info, model_config, amp_config, oth, comm_type):
+def predict(args:Namespace, config, bs, mbs, cluster_info, model_config, amp_config, oth):
     L = model_config["num_layers"]
     cost = torch.zeros(1,)
     M, N = config.shape
     config = np.asarray(config)
-    comm_type = comm_type
-       
+    comm_type = args.comm_type
+    
     if np.all(config == -1):
         rank_map = defaultdict(list)
         rank_node_map = dict()

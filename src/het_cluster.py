@@ -34,6 +34,7 @@ parser.add_argument("--num_node", type=int, default=8, help="num_node")
 parser.add_argument("--gbs", type=int, default=64, help="num_node")
 parser.add_argument("--model_type", type=str, default="gpt2XL", help="num_node")
 parser.add_argument("--add_exp_name", type=str, help="num_node")
+parser.add_argument("--test", type=bool, help="test mode")
 
 args = parser.parse_args()
 # cluster information
@@ -125,7 +126,7 @@ iter_count = 0
 
 # Estimating best configurations
 while True:
-    ret = amp_no_placement_strategy(M=M, N=N, gbs=global_bs, known=known)
+    ret = amp_no_placement_strategy(args, M=M, N=N, gbs=global_bs, known=known)
     if ret is None:
         break
     else:
